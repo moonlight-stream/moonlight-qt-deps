@@ -16,10 +16,7 @@ set CFLAGS_OVR=%CFLAGS_OVR% /FS
 
 rem Enable security mitigations
 rem
-rem NB: We don't use CFG due to lack of upstream support (openssl#22554)
-set CFLAGS_OVR=%CFLAGS_OVR% /guard:ehcont
-set ASFLAGS_OVR=%ASFLAGS_OVR% /guard:ehcont
-set LDFLAGS_OVR=%LDFLAGS_OVR% /guard:ehcont
+rem NB: We don't use CFG or EHCONT due to lack of upstream support (openssl#22554)
 if /I "%1" NEQ "ARM64" (
     set LDFLAGS_OVR=%LDFLAGS_OVR% /CETCOMPAT
 )
