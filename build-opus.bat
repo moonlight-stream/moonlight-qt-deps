@@ -14,8 +14,19 @@ if /I "%1" NEQ "ARM64" (
     set LDFLAGS=%LDFLAGS% /CETCOMPAT
 )
 
+rem Apply the Windows ARM64 patch
+pushd %REPO_PATH%
+git apply ..\patches\libopus_woa.patch || exit /b 1
+popd
+
 mkdir build_%1
 cd build_%1 || exit /b 1
 cmake %CMAKE_ARGS% -DOPUS_BUILD_SHARED_LIBRARY=ON -A %2 %REPO_PATH% || exit /b 1
 cmake --build . --config Release -v || exit /b 1
 cd ..
+
+rem Revert the Windows ARM64 patch
+pushd %REPO_PATH%
+git reset --hard || exit /b 1
+git clean -f -d -x -e NUL || exit /b 1
+popd
