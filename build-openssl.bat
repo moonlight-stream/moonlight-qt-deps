@@ -3,9 +3,6 @@ set PATH=C:\Strawberry\perl\bin;%PATH%
 
 cd ..\openssl || exit /b 1
 
-rem Apply the multilib patch
-git apply ..\patches\openssl_masm_multilib.patch || exit /b 1
-
 rem CFLAGS/ASFLAGS/LDFLAGS overrides the defaults, so we must include them too
 set CFLAGS_OVR=/W3 /wd4090 /nologo
 set ASFLAGS_OVR=/nologo /Zi
@@ -23,7 +20,7 @@ if /I "%1" NEQ "ARM64" (
 
 rem Build OpenSSL
 mkdir ..\build\openssl\build_%1
-perl Configure CFLAGS="%CFLAGS_OVR%" ASFLAGS="%ASFLAGS_OVR%" LDFLAGS="%LDFLAGS_OVR%" --prefix=%CD%\..\build\openssl\build_%1 --openssldir=%CD%\..\build\openssl\build_%1 %2 no-tests no-engine no-apps no-legacy no-dso || exit /b 1
+perl Configure CFLAGS="%CFLAGS_OVR%" ASFLAGS="%ASFLAGS_OVR%" LDFLAGS="%LDFLAGS_OVR%" --prefix=%CD%\..\build\openssl\build_%1 --openssldir=%CD%\..\build\openssl\build_%1 %2 no-tests no-apps no-legacy no-dso || exit /b 1
 jom || exit /b 1
 nmake install_sw || exit /b 1
 
