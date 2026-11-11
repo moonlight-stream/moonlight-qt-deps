@@ -19,6 +19,8 @@ rem
 rem NB: We don't use CFG or EHCONT due to lack of upstream support (openssl#22554)
 if /I "%1" NEQ "ARM64" (
     set LDFLAGS_OVR=%LDFLAGS_OVR% /CETCOMPAT
+) else (
+    set CFLAGS_OVR=%CFLAGS_OVR% /guard:signret
 )
 
 rem Build OpenSSL

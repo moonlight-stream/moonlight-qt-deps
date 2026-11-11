@@ -20,7 +20,7 @@ elif [ "$1" = "arm64" ]; then
     mkdir /tmp/gas
     wget https://raw.githubusercontent.com/FFmpeg/gas-preprocessor/master/gas-preprocessor.pl -O /tmp/gas/gas-preprocessor.pl
 
-    TARGET_BUILD_ARGS="--arch=arm64 --toolchain=msvc --enable-cross-compile"
+    TARGET_BUILD_ARGS="--arch=arm64 --toolchain=msvc --enable-cross-compile --extra-cflags=-guard:signret"
     export PATH=/tmp/gas:$PATH
 fi
 

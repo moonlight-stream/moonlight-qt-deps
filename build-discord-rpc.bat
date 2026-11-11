@@ -12,6 +12,9 @@ set CXXFLAGS=%CXXFLAGS% /guard:cf /guard:ehcont
 set LDFLAGS=%LDFLAGS% /guard:cf /guard:ehcont
 if /I "%1" NEQ "ARM64" (
     set LDFLAGS=%LDFLAGS% /CETCOMPAT
+) else (
+    set CFLAGS=%CFLAGS% /guard:signret
+    set CXXFLAGS=%CXXFLAGS% /guard:signret
 )
 
 mkdir build_%1
