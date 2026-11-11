@@ -21,6 +21,7 @@ jobs:
             ffmpeg_build_tuple: x64
             libplacebo_build_tuple: x64
             vulkan_sdk_version: 1.4.363.0
+            msystem: UCRT64
 
           # Windows ARM64 Configuration
           - os: windows-11-vs2026-arm
@@ -32,6 +33,7 @@ jobs:
             ffmpeg_build_tuple: arm64
             libplacebo_build_tuple: arm64
             vulkan_sdk_version: 1.4.363.0
+            msystem: CLANGARM64
 
           # macOS Configuration
           - os: macos-26
@@ -75,6 +77,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: msys2/setup-msys2@v2
         with:
+          msystem: ${{ matrix.msystem }}
           path-type: inherit
           update: true
           install: >-
