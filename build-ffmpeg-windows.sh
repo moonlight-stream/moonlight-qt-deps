@@ -11,6 +11,7 @@ cd $SCRIPTPATH/FFmpeg
 
 # Apply our FFmpeg patches
 git apply ../patches/ffmpeg_dxva_hevc_rext.patch
+git apply ../patches/ffmpeg_dxva_h264_slices.patch
 
 if [ "$1" = "x64" ]; then
     # x64 uses nasm for assembly
