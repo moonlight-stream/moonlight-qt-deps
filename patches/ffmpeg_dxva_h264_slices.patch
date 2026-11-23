@@ -1,0 +1,205 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Enrique Wood <ewoodg@hotmail.com>
+Date: Sat, 7 Nov 2026 19:10:35 -0300
+Subject: [PATCH] avcodec/dxva2_h264, d3d12va_h264: allow more than 32 slices
+ per frame
+
+The DXVA2, D3D11VA and D3D12VA H.264 hwaccels keep the slice control
+entries in fixed arrays of MAX_SLICES (32) per picture and refuse any
+further slice. With the default error handling the extra slices are
+dropped and the bottom of the picture is left undecoded; with
+AV_EF_EXPLODE the whole frame fails.
+
+Some encoders cut every frame into more slices than that. The
+PlayStation 5 hardware encoder on system software 10.x sends 1080p
+H.264 as 34 slices per frame, which the software decoder handles but
+these hwaccels do not.
+
+Keep the entries in a buffer owned by the hwaccel context that grows
+with av_fast_realloc(), as nvdec_h264 does for its slice offsets.
+These hwaccels are not thread-safe, so only one frame is between
+start_frame and end_frame at a time and the buffer is reused from
+frame to frame. The per-picture context keeps a pointer to it.
+
+Signed-off-by: Enrique Wood <ewoodg@hotmail.com>
+---
+ libavcodec/d3d12va_decode.c |  2 ++
+ libavcodec/d3d12va_decode.h |  8 ++++++++
+ libavcodec/d3d12va_h264.c   | 14 ++++++++++++--
+ libavcodec/dxva2.c          |  2 ++
+ libavcodec/dxva2_h264.c     | 24 +++++++++++++++++++-----
+ libavcodec/dxva2_internal.h |  8 ++++++++
+ 6 files changed, 51 insertions(+), 7 deletions(-)
+
+diff --git a/libavcodec/d3d12va_decode.c b/libavcodec/d3d12va_decode.c
+index 4e714ef..cf6182c 100644
+--- a/libavcodec/d3d12va_decode.c
++++ b/libavcodec/d3d12va_decode.c
+@@ -487,6 +487,8 @@ av_cold int ff_d3d12va_decode_uninit(AVCodecContext *avctx)
+ 
+     av_freep(&ctx->ref_resources);
+     av_freep(&ctx->ref_subresources);
++    av_freep(&ctx->slice_ctrl);
++    ctx->slice_ctrl_size = 0;
+ 
+     D3D12_OBJECT_RELEASE(ctx->command_list);
+     D3D12_OBJECT_RELEASE(ctx->command_queue);
+diff --git a/libavcodec/d3d12va_decode.h b/libavcodec/d3d12va_decode.h
+index c771004..65aa40e 100644
+--- a/libavcodec/d3d12va_decode.h
++++ b/libavcodec/d3d12va_decode.h
+@@ -132,6 +132,14 @@ typedef struct D3D12VADecodeContext {
+     void *reference_only_map;
+     ID3D12Resource **ref_only_resources;
+ 
++    /**
++     * Slice control entries of the frame being decoded, for codecs whose
++     * frames can have any number of slices. The hwaccel is not thread-safe,
++     * so only one frame is between start_frame and end_frame.
++     */
++    void        *slice_ctrl;
++    unsigned int slice_ctrl_size;
++
+ } D3D12VADecodeContext;
+ 
+ /**
+diff --git a/libavcodec/d3d12va_h264.c b/libavcodec/d3d12va_h264.c
+index 5087e48..b93d8d0 100644
+--- a/libavcodec/d3d12va_h264.c
++++ b/libavcodec/d3d12va_h264.c
+@@ -22,6 +22,7 @@
+ 
+ #include "config_components.h"
+ #include "libavutil/avassert.h"
++#include "libavutil/mem.h"
+ #include "h264dec.h"
+ #include "h264data.h"
+ #include "h264_ps.h"
+@@ -35,7 +36,7 @@ typedef struct H264DecodePictureContext {
+     DXVA_PicParams_H264   pp;
+     DXVA_Qmatrix_H264     qm;
+     unsigned              slice_count;
+-    DXVA_Slice_H264_Short slice_short[MAX_SLICES];
++    DXVA_Slice_H264_Short *slice_short; ///< in D3D12VADecodeContext.slice_ctrl
+     const uint8_t         *bitstream;
+     unsigned              bitstream_size;
+ } H264DecodePictureContext;
+@@ -70,6 +71,7 @@ static int d3d12va_h264_start_frame(AVCodecContext *avctx,
+     ff_dxva2_h264_fill_scaling_lists(avctx, (AVDXVAContext *)ctx, &ctx_pic->qm);
+ 
+     ctx_pic->slice_count    = 0;
++    ctx_pic->slice_short    = NULL;
+     ctx_pic->bitstream_size = 0;
+     ctx_pic->bitstream      = NULL;
+ 
+@@ -83,9 +85,17 @@ static int d3d12va_h264_decode_slice(AVCodecContext *avctx, const uint8_t *buffe
+     const H264SliceContext   *sl              = &h->slice_ctx[0];
+     const H264Picture        *current_picture = h->cur_pic_ptr;
+     H264DecodePictureContext *ctx_pic         = current_picture->hwaccel_picture_private;
++    D3D12VADecodeContext     *ctx             = D3D12VA_DECODE_CONTEXT(avctx);
++    DXVA_Slice_H264_Short    *slice_ctrl;
+ 
+-    if (ctx_pic->slice_count >= MAX_SLICES)
++    if (ctx_pic->slice_count >= UINT_MAX / sizeof(*slice_ctrl) - 1)
+         return AVERROR(ERANGE);
++    slice_ctrl = av_fast_realloc(ctx->slice_ctrl, &ctx->slice_ctrl_size,
++                                 (ctx_pic->slice_count + 1) * sizeof(*slice_ctrl));
++    if (!slice_ctrl)
++        return AVERROR(ENOMEM);
++    ctx->slice_ctrl      = slice_ctrl;
++    ctx_pic->slice_short = slice_ctrl;
+ 
+     if (!ctx_pic->bitstream)
+         ctx_pic->bitstream = buffer;
+diff --git a/libavcodec/dxva2.c b/libavcodec/dxva2.c
+index a282e6c..b256129 100644
+--- a/libavcodec/dxva2.c
++++ b/libavcodec/dxva2.c
+@@ -734,6 +734,8 @@ int ff_dxva2_decode_uninit(AVCodecContext *avctx)
+     int i;
+ 
+     av_buffer_unref(&sctx->decoder_ref);
++    av_freep(&sctx->slice_ctrl);
++    sctx->slice_ctrl_size = 0;
+ 
+ #if CONFIG_D3D11VA
+     for (i = 0; i < sctx->nb_d3d11_views; i++) {
+diff --git a/libavcodec/dxva2_h264.c b/libavcodec/dxva2_h264.c
+index dd9dccb..0e5de74 100644
+--- a/libavcodec/dxva2_h264.c
++++ b/libavcodec/dxva2_h264.c
+@@ -23,6 +23,7 @@
+ #include "config_components.h"
+ 
+ #include "libavutil/avassert.h"
++#include "libavutil/mem.h"
+ 
+ #include "dxva2_internal.h"
+ #include "h264dec.h"
+@@ -35,8 +36,8 @@ struct dxva2_picture_context {
+     DXVA_PicParams_H264   pp;
+     DXVA_Qmatrix_H264     qm;
+     unsigned              slice_count;
+-    DXVA_Slice_H264_Short slice_short[MAX_SLICES];
+-    DXVA_Slice_H264_Long  slice_long[MAX_SLICES];
++    DXVA_Slice_H264_Short *slice_short; ///< in FFDXVASharedContext.slice_ctrl
++    DXVA_Slice_H264_Long  *slice_long;  ///< same buffer, for the long format
+     const uint8_t         *bitstream;
+     unsigned              bitstream_size;
+ };
+@@ -463,6 +464,8 @@ static int dxva2_h264_start_frame(AVCodecContext *avctx,
+     ff_dxva2_h264_fill_scaling_lists(avctx, ctx, &ctx_pic->qm);
+ 
+     ctx_pic->slice_count    = 0;
++    ctx_pic->slice_short    = NULL;
++    ctx_pic->slice_long     = NULL;
+     ctx_pic->bitstream_size = 0;
+     ctx_pic->bitstream      = NULL;
+     return 0;
+@@ -477,10 +480,21 @@ static int dxva2_h264_decode_slice(AVCodecContext *avctx,
+     AVDXVAContext *ctx = DXVA_CONTEXT(avctx);
+     const H264Picture *current_picture = h->cur_pic_ptr;
+     struct dxva2_picture_context *ctx_pic = current_picture->hwaccel_picture_private;
++    FFDXVASharedContext *sctx = DXVA_SHARED_CONTEXT(avctx);
++    const size_t entry_size = is_slice_short(avctx, ctx) ? sizeof(DXVA_Slice_H264_Short)
++                                                         : sizeof(DXVA_Slice_H264_Long);
+     unsigned position;
+-
+-    if (ctx_pic->slice_count >= MAX_SLICES)
+-        return -1;
++    void *slice_ctrl;
++
++    if (ctx_pic->slice_count >= UINT_MAX / entry_size - 1)
++        return AVERROR(ERANGE);
++    slice_ctrl = av_fast_realloc(sctx->slice_ctrl, &sctx->slice_ctrl_size,
++                                 (ctx_pic->slice_count + 1) * entry_size);
++    if (!slice_ctrl)
++        return AVERROR(ENOMEM);
++    sctx->slice_ctrl     = slice_ctrl;
++    ctx_pic->slice_short = slice_ctrl;
++    ctx_pic->slice_long  = slice_ctrl;
+ 
+     if (!ctx_pic->bitstream)
+         ctx_pic->bitstream = buffer;
+diff --git a/libavcodec/dxva2_internal.h b/libavcodec/dxva2_internal.h
+index 6cbd0e4..74f34a4 100644
+--- a/libavcodec/dxva2_internal.h
++++ b/libavcodec/dxva2_internal.h
+@@ -94,6 +94,14 @@ typedef struct FFDXVASharedContext {
+ 
+     AVHWDeviceContext *device_ctx;
+ 
++    /**
++     * Slice control entries of the frame being decoded, for codecs whose
++     * frames can have any number of slices. The DXVA hwaccels are not
++     * thread-safe, so only one frame is between start_frame and end_frame.
++     */
++    void        *slice_ctrl;
++    unsigned int slice_ctrl_size;
++
+ #if CONFIG_D3D11VA
+     ID3D11VideoDecoder             *d3d11_decoder;
+     D3D11_VIDEO_DECODER_CONFIG      d3d11_config;
+-- 
+2.55.0.windows.5
+
