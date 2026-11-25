@@ -8,7 +8,7 @@ pushd Ne10
 NE10_DIR=$(pwd)
 mkdir build && pushd build
 export NE10_LINUX_TARGET_ARCH=armv7
-cmake -DGNULINUX_PLATFORM=ON -DCMAKE_C_FLAGS="-fPIC" ..
+cmake -DCMAKE_BUILD_TYPE=Release -DGNULINUX_PLATFORM=ON -DCMAKE_C_FLAGS="-fPIC" ..
 make -j$(nproc)
 popd
 popd
