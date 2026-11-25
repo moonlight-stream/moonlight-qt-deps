@@ -1,6 +1,6 @@
 set REPO_PATH=..\..\..\dav1d
 
-set COMMON_OPTIONS=-Ddefault_library=shared -Dbuildtype=debugoptimized -Denable_tools=false -Denable_tests=false
+set COMMON_OPTIONS=-Ddefault_library=shared -Dbuildtype=release -Ddebug=true -Denable_tools=false -Denable_tests=false
 
 rem x86 and x64 use NASM for assembly
 set PATH=%ProgramFiles%\NASM;%PATH%

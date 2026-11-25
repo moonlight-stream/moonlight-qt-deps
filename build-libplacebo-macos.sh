@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-COMMON_OPTIONS="--pkg-config-path=$VULKAN_SDK/lib/pkgconfig -Ddefault_library=shared -Dbuildtype=debugoptimized -Ddemos=false -Dtests=false -Dopengl=disabled -Dd3d11=disabled -Dvulkan=enabled -Dvk-proc-addr=disabled -Dxxhash=disabled -Dshaderc=enabled -Dlcms=disabled"
+COMMON_OPTIONS="--pkg-config-path=$VULKAN_SDK/lib/pkgconfig -Ddefault_library=shared -Dbuildtype=release -Ddebug=true -Db_ndebug=true -Ddemos=false -Dtests=false -Dopengl=disabled -Dd3d11=disabled -Dvulkan=enabled -Dvk-proc-addr=disabled -Dxxhash=disabled -Dshaderc=enabled -Dlcms=disabled"
 
 # Enable cross compilation if needed
 arch=$(uname -m)

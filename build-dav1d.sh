@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-COMMON_OPTIONS="-Ddefault_library=static -Dbuildtype=debugoptimized -Denable_tools=false -Denable_tests=false"
+COMMON_OPTIONS="-Ddefault_library=static -Dbuildtype=release -Ddebug=true -Denable_tools=false -Denable_tests=false"
 
 # Enable cross compilation if needed
 arch=$(uname -m)

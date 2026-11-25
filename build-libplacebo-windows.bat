@@ -25,7 +25,7 @@ if /I "%1" NEQ "ARM64" (
     set CXXFLAGS=%CXXFLAGS% -mbranch-protection=pac-ret+b-key
 )
 
-meson setup --prefix=%OUTDIR% -Ddefault_library=shared -Dbuildtype=debugoptimized -Ddemos=false -Dtests=false -Dopengl=disabled -Dd3d11=disabled -Dvulkan=enabled -Dvk-proc-addr=disabled -Dxxhash=disabled -Dshaderc=enabled build || exit /b 1
+meson setup --prefix=%OUTDIR% -Ddefault_library=shared -Dbuildtype=release -Ddebug=true -Db_ndebug=true -Ddemos=false -Dtests=false -Dopengl=disabled -Dd3d11=disabled -Dvulkan=enabled -Dvk-proc-addr=disabled -Dxxhash=disabled -Dshaderc=enabled build || exit /b 1
 ninja -C build || exit /b 1
 ninja -C build install || exit /b 1
 
