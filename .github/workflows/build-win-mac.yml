@@ -17,7 +17,7 @@ jobs:
             msvc_compiler_tuple: amd64
             msbuild_platform: x64
             cmake_build_tuple: x64 x64
-            openssl_build_tuple: x64 VC-WIN64A-masm
+            openssl_build_tuple: x64 moonlight-win-x64
             ffmpeg_build_tuple: x64
             libplacebo_build_tuple: x64
             vulkan_sdk_version: 1.4.363.0
@@ -29,7 +29,7 @@ jobs:
             msvc_compiler_tuple: arm64
             msbuild_platform: ARM64
             cmake_build_tuple: arm64 ARM64
-            openssl_build_tuple: arm64 VC-WIN64-CLANGASM-ARM
+            openssl_build_tuple: arm64 moonlight-win-arm64
             ffmpeg_build_tuple: arm64
             libplacebo_build_tuple: arm64
             vulkan_sdk_version: 1.4.363.0
