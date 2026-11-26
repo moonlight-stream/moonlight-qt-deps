@@ -19,6 +19,7 @@ set CFLAGS=%CFLAGS% /guard:cf /guard:ehcont
 set CXXFLAGS=%CXXFLAGS% /guard:cf /guard:ehcont
 set LDFLAGS=%LDFLAGS% /guard:cf /guard:ehcont
 if /I "%1" NEQ "ARM64" (
+    set CXXFLAGS=%CXXFLAGS% /D_ALLOW_COMPILER_AND_STL_VERSION_MISMATCH
     set LDFLAGS=%LDFLAGS% /CETCOMPAT
 ) else (
     set CFLAGS=%CFLAGS% -mbranch-protection=pac-ret+b-key
